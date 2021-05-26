@@ -45,24 +45,6 @@ func NewWindowsModel(namespaces []string, podNames []string, ports []int32, dnsD
 	return NewModel(namespaces, podNames, ports, []v1.Protocol{v1.ProtocolTCP}, dnsDomain)
 }
 
-// GetProbeTimeoutSeconds returns a timeout for how long the probe should work before failing a check, and takes windows heuristics into account, where requests can take longer sometimes.
-func (m *Model) GetProbeTimeoutSeconds() int {
-	timeoutSeconds := 1
-	if framework.NodeOSDistroIs("windows") {
-		timeoutSeconds = 3
-	}
-	return timeoutSeconds
-}
-
-// GetWorkers returns the number of workers suggested to run when testing, taking windows heuristics into account, where parallel probing is flakier.
-func (m *Model) GetWorkers() int {
-	numberOfWorkers := 3
-	if framework.NodeOSDistroIs("windows") {
-		numberOfWorkers = 1 // See https://github.com/kubernetes/kubernetes/pull/97690
-	}
-	return numberOfWorkers
-}
-
 // NewModel instantiates a model based on:
 // - namespaces
 // - pods
@@ -106,6 +88,24 @@ func NewModel(namespaces []string, podNames []string, ports []int32, protocols [
 	return model
 }
 
+// GetProbeTimeoutSeconds returns a timeout for how long the probe should work before failing a check, and takes windows heuristics into account, where requests can take longer sometimes.
+func (m *Model) GetProbeTimeoutSeconds() int {
+	timeoutSeconds := 1
+	if framework.NodeOSDistroIs("windows") {
+		timeoutSeconds = 3
+	}
+	return timeoutSeconds
+}
+
+// GetWorkers returns the number of workers suggested to run when testing, taking windows heuristics into account, where parallel probing is flakier.
+func (m *Model) GetWorkers() int {
+	numberOfWorkers := 3
+	if framework.NodeOSDistroIs("windows") {
+		numberOfWorkers = 1 // See https://github.com/kubernetes/kubernetes/pull/97690
+	}
+	return numberOfWorkers
+}
+
 // NewReachability instantiates a default-true reachability from the model's pods
 func (m *Model) NewReachability() *Reachability {
 	return NewReachability(m.AllPods(), true)
@@ -131,6 +131,12 @@ func (m *Model) AllPods() []*Pod {
 		var pods []*Pod
 		for _, ns := range m.Namespaces {
 			for _, pod := range ns.Pods {
+				if pod.ServiceIP == "" {
+					framework.Logf("FAILING NOW MISSING SERVICE IP ")
+					panic("bad")
+				} else {
+					framework.Logf("VALID SERVICE IP %v ", pod.ServiceIP)
+				}
 				pods = append(pods, pod)
 			}
 		}
@@ -180,6 +186,20 @@ type Pod struct {
 	Namespace  string
 	Name       string
 	Containers []*Container
+	ServiceIP  string
+}
+
+func (m *Model) SetServiceIP(namespace string, name string, ip string) {
+	pod, _ := m.FindPod(namespace, name)
+	pod.ServiceIP = ip
+
+	pod, _ = m.FindPod(namespace, name)
+	if pod.ServiceIP != ip {
+		for i := 0; i < 30; i++ {
+			fmt.Print("omg")
+		}
+		panic("what ")
+	}
 }
 
 // PodString returns a corresponding pod string

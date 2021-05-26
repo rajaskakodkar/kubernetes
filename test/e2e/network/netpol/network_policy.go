@@ -132,7 +132,7 @@ var _ = common.SIGDescribe("Netpol", func() {
 			}
 		})
 
-		ginkgo.It("should support a 'default-deny-ingress' policy [Feature:NetworkPolicy]", func() {
+		ginkgo.It("SMOKE should support a 'default-deny-ingress' policy [Feature:NetworkPolicy]", func() {
 			nsX, _, _, model, k8s := getK8SModel(f)
 			policy := GenNetworkPolicyWithNameAndPodSelector("deny-ingress", metav1.LabelSelector{}, SetSpecIngressRules())
 			CreatePolicy(k8s, policy, nsX)
@@ -1347,6 +1347,18 @@ func getK8SModel(f *framework.Framework) (string, string, string, *Model, *kubeM
 
 	model := defaultModel(namespaces, framework.TestContext.ClusterDNSDomain)
 
+	for _, ns := range model.Namespaces {
+		for _, pod := range ns.Pods {
+			svc, err := f.ClientSet.CoreV1().Services(pod.Namespace).Get(context.TODO(), fmt.Sprintf("s-%v-%v", pod.Namespace, pod.Name), metav1.GetOptions{})
+			if err != nil {
+				framework.Logf("%v missing service in %v -------> %v", pod.Namespace, pod.Name, err)
+				time.Sleep(5 * time.Second)
+				panic("uninitialized model, missing ns")
+			}
+			model.SetServiceIP(pod.Namespace, pod.Name, svc.Spec.ClusterIP)
+		}
+	}
+
 	return nsX, nsY, nsZ, model, k8s
 }
 
@@ -1378,7 +1390,12 @@ func initializeResourcesByFixedNS(f *framework.Framework) {
 // model derived from the framework.  It then waits for the resources described by the model to be up and running
 // (i.e. all pods are ready and running in their namespaces).
 func initializeResources(f *framework.Framework) error {
-	_, _, _, model, k8s := getK8SModel(f)
+	//	_, _, _, model, k8s := getK8SModel(f)
+	k8s := newKubeManager(f)
+	rootNs := f.Namespace.GetName()
+	_, _, _, namespaces := getNamespaces(rootNs)
+
+	model := defaultModel(namespaces, framework.TestContext.ClusterDNSDomain)
 
 	framework.Logf("initializing cluster: ensuring namespaces, deployments, and pods exist and are ready")
 
@@ -1389,5 +1406,5 @@ func initializeResources(f *framework.Framework) error {
 
 	framework.Logf("finished initializing cluster state")
 
-	return k8s.waitForHTTPServers(model)
+	return waitForHTTPServers(k8s, model)
 }

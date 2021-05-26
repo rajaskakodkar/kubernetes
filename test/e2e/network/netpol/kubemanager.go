@@ -70,7 +70,12 @@ func (k *kubeManager) initializeCluster(model *Model) error {
 			}
 
 			createdPods = append(createdPods, kubePod)
-			_, err = k.createService(pod.Service())
+			svc, err := k.createService(pod.Service())
+			pod.ServiceIP = svc.Spec.ClusterIP
+			// important to make sure we set the service ip of the pod in the model
+			// otherwise we wont be able to poll it later on
+			model.SetServiceIP(pod.Namespace, pod.Name, pod.ServiceIP)
+
 			if err != nil {
 				return err
 			}
@@ -110,9 +115,15 @@ func (k *kubeManager) getPod(ns string, name string) (*v1.Pod, error) {
 	return kubePod, nil
 }
 
-// probeConnectivity execs into a pod and checks its connectivity to another pod..
+// probeConnectivity execs into a pod and checks its connectivity to another pod.
+// Implements the Prober interface.
 func (k *kubeManager) probeConnectivity(nsFrom string, podFrom string, containerFrom string, addrTo string, protocol v1.Protocol, toPort int, timeoutSeconds int) (bool, string, error) {
 	port := strconv.Itoa(toPort)
+	if addrTo == "" {
+		return false, "no IP provided", fmt.Errorf("wtf")
+	} else {
+		framework.Logf("POLLING %V >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ", addrTo)
+	}
 	var cmd []string
 	timeout := fmt.Sprintf("--timeout=%vs", timeoutSeconds)
 

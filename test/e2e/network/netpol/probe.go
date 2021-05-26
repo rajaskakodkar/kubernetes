@@ -17,10 +17,16 @@ limitations under the License.
 package netpol
 
 import (
+	"fmt"
 	"github.com/onsi/ginkgo"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 )
+
+// decouple us from k8smanager.go
+type Prober interface {
+	probeConnectivity(nsFrom string, podFrom string, containerFrom string, addrTo string, protocol v1.Protocol, toPort int, timeoutSeconds int) (bool, string, error)
+}
 
 // ProbeJob packages the data for the input of a pod->pod connectivity probe
 type ProbeJob struct {
@@ -40,16 +46,20 @@ type ProbeJobResults struct {
 }
 
 // ProbePodToPodConnectivity runs a series of probes in kube, and records the results in `testCase.Reachability`
-func ProbePodToPodConnectivity(k8s *kubeManager, model *Model, testCase *TestCase) {
+func ProbePodToPodConnectivity(prober Prober, model *Model, testCase *TestCase) {
 	allPods := model.AllPods()
 	size := len(allPods) * len(allPods)
 	jobs := make(chan *ProbeJob, size)
 	results := make(chan *ProbeJobResults, size)
 	for i := 0; i < model.GetWorkers(); i++ {
-		go probeWorker(k8s, jobs, results, model.GetProbeTimeoutSeconds())
+		go probeWorker(prober, jobs, results, model.GetProbeTimeoutSeconds())
 	}
 	for _, podFrom := range allPods {
 		for _, podTo := range allPods {
+			if podTo.ServiceIP == "" {
+				framework.Logf("no service ip in call tp ProbePodToPodConnectivity.... check the model !!!")
+				return
+			}
 			jobs <- &ProbeJob{
 				PodFrom:        podFrom,
 				PodTo:          podTo,
@@ -64,6 +74,12 @@ func ProbePodToPodConnectivity(k8s *kubeManager, model *Model, testCase *TestCas
 	for i := 0; i < size; i++ {
 		result := <-results
 		job := result.Job
+		if job.PodFrom == nil {
+			framework.Logf("pod FROM is nil wtf wtf ")
+		}
+		if job.PodTo == nil {
+			framework.Logf("pod TO is nil wtf")
+		}
 		if result.Err != nil {
 			framework.Logf("unable to perform probe %s -> %s: %v", job.PodFrom.PodString(), job.PodTo.PodString(), result.Err)
 		}
@@ -83,11 +99,24 @@ func ProbePodToPodConnectivity(k8s *kubeManager, model *Model, testCase *TestCas
 
 // probeWorker continues polling a pod connectivity status, until the incoming "jobs" channel is closed, and writes results back out to the "results" channel.
 // it only writes pass/fail status to a channel and has no failure side effects, this is by design since we do not want to fail inside a goroutine.
-func probeWorker(k8s *kubeManager, jobs <-chan *ProbeJob, results chan<- *ProbeJobResults, timeoutSeconds int) {
+func probeWorker(prober Prober, jobs <-chan *ProbeJob, results chan<- *ProbeJobResults, timeoutSeconds int) {
 	defer ginkgo.GinkgoRecover()
 	for job := range jobs {
 		podFrom := job.PodFrom
-		connected, command, err := k8s.probeConnectivity(podFrom.Namespace, podFrom.Name, podFrom.Containers[0].Name(), job.PodTo.QualifiedServiceAddress(job.ToPodDNSDomain), job.Protocol, job.ToPort, timeoutSeconds)
+		if job.PodTo.ServiceIP == "" {
+			results <- &ProbeJobResults{
+				Job:         job,
+				IsConnected: false,
+				Err:         fmt.Errorf("empty service ip"),
+			}
+		}
+		// note that we can probe a dnsName instead of ServiceIP by using dnsName like so:
+		// we stopped doing this because we wanted to support netpol testing in non dns enabled
+		// clusters, but might re-enable it later.
+		// dnsName := job.PodTo.QualifiedServiceAddress(job.ToPodDNSDomain)
+
+		// TODO how does ipv6 work here?
+		connected, command, err := prober.probeConnectivity(podFrom.Namespace, podFrom.Name, podFrom.Containers[0].Name(), job.PodTo.ServiceIP, job.Protocol, job.ToPort, timeoutSeconds)
 		result := &ProbeJobResults{
 			Job:         job,
 			IsConnected: connected,
