@@ -71,14 +71,13 @@ func (k *kubeManager) initializeCluster(model *Model) error {
 
 			createdPods = append(createdPods, kubePod)
 			svc, err := k.createService(pod.Service())
-			pod.ServiceIP = svc.Spec.ClusterIP
-			// important to make sure we set the service ip of the pod in the model
-			// otherwise we wont be able to poll it later on
-			model.SetServiceIP(pod.Namespace, pod.Name, pod.ServiceIP)
-
 			if err != nil {
 				return err
 			}
+			if svc.Spec.ClusterIP == "" {
+				return fmt.Errorf("empty IP address found for service %s/%s", svc.Namespace, svc.Name)
+			}
+			pod.ServiceIP = svc.Spec.ClusterIP
 		}
 	}
 

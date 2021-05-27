@@ -1349,13 +1349,16 @@ func getK8SModel(f *framework.Framework) (string, string, string, *Model, *kubeM
 
 	for _, ns := range model.Namespaces {
 		for _, pod := range ns.Pods {
-			svc, err := f.ClientSet.CoreV1().Services(pod.Namespace).Get(context.TODO(), fmt.Sprintf("s-%v-%v", pod.Namespace, pod.Name), metav1.GetOptions{})
+			service := pod.Service()
+			kubeService, err := f.ClientSet.CoreV1().Services(pod.Namespace).Get(context.TODO(), service.Name, metav1.GetOptions{})
 			if err != nil {
-				framework.Logf("%v missing service in %v -------> %v", pod.Namespace, pod.Name, err)
-				time.Sleep(5 * time.Second)
-				panic("uninitialized model, missing ns")
+				framework.Failf("unable to get service %s/%s: %+v", service.Namespace, service.Name, err)
 			}
-			model.SetServiceIP(pod.Namespace, pod.Name, svc.Spec.ClusterIP)
+			if kubeService.Spec.ClusterIP == "" {
+				framework.Failf("service %s/%s missing ip", service.Namespace, service.Name)
+			}
+
+			pod.ServiceIP = kubeService.Spec.ClusterIP
 		}
 	}
 

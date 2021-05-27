@@ -131,12 +131,6 @@ func (m *Model) AllPods() []*Pod {
 		var pods []*Pod
 		for _, ns := range m.Namespaces {
 			for _, pod := range ns.Pods {
-				if pod.ServiceIP == "" {
-					framework.Logf("FAILING NOW MISSING SERVICE IP ")
-					panic("bad")
-				} else {
-					framework.Logf("VALID SERVICE IP %v ", pod.ServiceIP)
-				}
 				pods = append(pods, pod)
 			}
 		}
@@ -187,19 +181,6 @@ type Pod struct {
 	Name       string
 	Containers []*Container
 	ServiceIP  string
-}
-
-func (m *Model) SetServiceIP(namespace string, name string, ip string) {
-	pod, _ := m.FindPod(namespace, name)
-	pod.ServiceIP = ip
-
-	pod, _ = m.FindPod(namespace, name)
-	if pod.ServiceIP != ip {
-		for i := 0; i < 30; i++ {
-			fmt.Print("omg")
-		}
-		panic("what ")
-	}
 }
 
 // PodString returns a corresponding pod string

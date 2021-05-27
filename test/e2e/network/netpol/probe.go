@@ -56,10 +56,6 @@ func ProbePodToPodConnectivity(prober Prober, model *Model, testCase *TestCase) 
 	}
 	for _, podFrom := range allPods {
 		for _, podTo := range allPods {
-			if podTo.ServiceIP == "" {
-				framework.Logf("no service ip in call tp ProbePodToPodConnectivity.... check the model !!!")
-				return
-			}
 			jobs <- &ProbeJob{
 				PodFrom:        podFrom,
 				PodTo:          podTo,
@@ -74,12 +70,6 @@ func ProbePodToPodConnectivity(prober Prober, model *Model, testCase *TestCase) 
 	for i := 0; i < size; i++ {
 		result := <-results
 		job := result.Job
-		if job.PodFrom == nil {
-			framework.Logf("pod FROM is nil wtf wtf ")
-		}
-		if job.PodTo == nil {
-			framework.Logf("pod TO is nil wtf")
-		}
 		if result.Err != nil {
 			framework.Logf("unable to perform probe %s -> %s: %v", job.PodFrom.PodString(), job.PodTo.PodString(), result.Err)
 		}
