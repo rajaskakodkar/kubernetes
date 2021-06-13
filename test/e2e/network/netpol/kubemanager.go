@@ -74,7 +74,7 @@ func (k *kubeManager) initializeCluster(model *Model) error {
 			if err != nil {
 				return err
 			}
-			if svc.Spec.ClusterIP == "" {
+			if net.ParseIP(svc.Spec.ClusterIP) == nil {
 				return fmt.Errorf("empty IP address found for service %s/%s", svc.Namespace, svc.Name)
 			}
 			pod.ServiceIP = svc.Spec.ClusterIP
@@ -121,7 +121,7 @@ func (k *kubeManager) probeConnectivity(nsFrom string, podFrom string, container
 	if addrTo == "" {
 		return false, "no IP provided", fmt.Errorf("wtf")
 	} else {
-		framework.Logf("POLLING %V >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ", addrTo)
+		framework.Logf("Starting probe from pod %v to %v", podFrom, addrTo)
 	}
 	var cmd []string
 	timeout := fmt.Sprintf("--timeout=%vs", timeoutSeconds)

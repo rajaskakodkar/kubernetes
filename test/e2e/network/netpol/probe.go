@@ -18,6 +18,8 @@ package netpol
 
 import (
 	"fmt"
+	"net"
+
 	"github.com/onsi/ginkgo"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -93,7 +95,7 @@ func probeWorker(prober Prober, jobs <-chan *ProbeJob, results chan<- *ProbeJobR
 	defer ginkgo.GinkgoRecover()
 	for job := range jobs {
 		podFrom := job.PodFrom
-		if job.PodTo.ServiceIP == "" {
+		if net.ParseIP(job.PodTo.ServiceIP) == nil {
 			results <- &ProbeJobResults{
 				Job:         job,
 				IsConnected: false,
@@ -105,7 +107,7 @@ func probeWorker(prober Prober, jobs <-chan *ProbeJob, results chan<- *ProbeJobR
 		// clusters, but might re-enable it later.
 		// dnsName := job.PodTo.QualifiedServiceAddress(job.ToPodDNSDomain)
 
-		// TODO how does ipv6 work here?
+		// TODO make this work on dual-stack clusters...
 		connected, command, err := prober.probeConnectivity(podFrom.Namespace, podFrom.Name, podFrom.Containers[0].Name(), job.PodTo.ServiceIP, job.Protocol, job.ToPort, timeoutSeconds)
 		result := &ProbeJobResults{
 			Job:         job,
