@@ -119,8 +119,8 @@ func (k *kubeManager) getPod(ns string, name string) (*v1.Pod, error) {
 func (k *kubeManager) probeConnectivity(nsFrom string, podFrom string, containerFrom string, addrTo string, protocol v1.Protocol, toPort int, timeoutSeconds int) (bool, string, error) {
 	port := strconv.Itoa(toPort)
 	if addrTo == "" {
-		return false, "no IP provided", fmt.Errorf("wtf")
-	} 
+		return false, "no IP provided", fmt.Errorf("empty addrTo field")
+	}
 	framework.Logf("Starting probe from pod %v to %v", podFrom, addrTo)
 	var cmd []string
 	timeout := fmt.Sprintf("--timeout=%vs", timeoutSeconds)
