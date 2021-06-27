@@ -124,6 +124,7 @@ var _ = common.SIGDescribe("Netpol", func() {
 	ginkgo.Context("NetworkPolicy between server and client", func() {
 		ginkgo.BeforeEach(func() {
 			initializeResourcesByFixedNS(f)
+			ginkgo.By("INITIALISED RESOURCES!!!!!!!!!!!!!")
 		})
 
 		ginkgo.AfterEach(func() {
