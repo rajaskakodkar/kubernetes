@@ -101,7 +101,6 @@ func (k *kubeManager) initializeCluster(model *Model) error {
 			return fmt.Errorf("unable to wait for pod %s/%s: %w", createdPod.Namespace, createdPod.Name, err)
 		}
 	}
-
 	return nil
 }
 
