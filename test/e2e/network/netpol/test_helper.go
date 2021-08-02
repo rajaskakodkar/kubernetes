@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	waitInterval = 1 * time.Second
+	// increased to 5 seconds, from 1, so that the test waits longer to start in case of congestion
+	waitInterval = 5 * time.Second
 	waitTimeout  = 30 * time.Second
 )
 
@@ -67,7 +68,7 @@ func UpdatePolicy(k8s *kubeManager, policy *networkingv1.NetworkPolicy, namespac
 
 // waitForHTTPServers waits for all webservers to be up, on all protocols sent in the input,  and then validates them using the same probe logic as the rest of the suite.
 func waitForHTTPServers(k *kubeManager, model *Model) error {
-	const maxTries = 10
+	const maxTries = 20
 	framework.Logf("waiting for HTTP servers (ports 80 and 81) to become ready")
 
 	testCases := map[string]*TestCase{}
