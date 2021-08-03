@@ -24,8 +24,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	imageutils "k8s.io/kubernetes/test/utils/image"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 )
 
+// getResourceRequirements returns a ResourceRequirements object
+func getResourceRequirements(requests, limits v1.ResourceList) v1.ResourceRequirements {
+	res := v1.ResourceRequirements{}
+	res.Requests = requests
+	res.Limits = limits
+	return res
+}
 // Model defines the namespaces, deployments, services, pods, containers and associated
 // data for network policy test cases and provides the source of truth
 type Model struct {
@@ -286,6 +295,20 @@ func (c *Container) PortName() string {
 	return fmt.Sprintf("serve-%d-%s", c.Port, strings.ToLower(string(c.Protocol)))
 }
 
+
+// getResourceList returns a ResourceList with the
+// specified cpu and memory resource values
+func getResourceList(cpu, memory string) v1.ResourceList {
+	res := v1.ResourceList{}
+	if cpu != "" {
+		res[v1.ResourceCPU] = resource.MustParse(cpu)
+	}
+	if memory != "" {
+		res[v1.ResourceMemory] = resource.MustParse(memory)
+	}
+	return res
+}
+
 // Spec returns the kube container spec
 func (c *Container) Spec() v1.Container {
 	var (
@@ -310,7 +333,7 @@ func (c *Container) Spec() v1.Container {
 		framework.Failf("invalid protocol %v", c.Protocol)
 	}
 
-	return v1.Container{
+	container := v1.Container{
 		Name:            c.Name(),
 		ImagePullPolicy: v1.PullIfNotPresent,
 		Image:           agnHostImage,
@@ -325,4 +348,7 @@ func (c *Container) Spec() v1.Container {
 			},
 		},
 	}
+	// reduce cpu usage 10 fold compared to a normal pod...
+	container.Resources = getResourceRequirements(getResourceList("60m", "60Mi"), getResourceList("60m", "60Mi"))
+	return container	
 }
