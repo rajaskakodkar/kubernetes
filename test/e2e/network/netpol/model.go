@@ -369,6 +369,6 @@ func (c *Container) Spec() v1.Container {
 		},
 	}
 	// reduce cpu usage 10 fold compared to a normal pod...
-	container.Resources = getResourceRequirements(getResourceList("75m", "75Mi"), getResourceList("500m", "100Mi"))
+	container.Resources = getResourceRequirements(getResourceList("75m", "75Mi"), getResourceList("2000m", "1000Mi"))
 	return container	
 }
