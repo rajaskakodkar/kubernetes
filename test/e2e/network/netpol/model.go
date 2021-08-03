@@ -47,11 +47,14 @@ type Model struct {
 	Ports          []int32
 	Protocols      []v1.Protocol
 	DNSDomain      string
+	UDP bool
+	TCP bool
+	SCTP bool
 }
 
 // NewWindowsModel returns a model specific to windows testing.
-func NewWindowsModel(namespaces []string, podNames []string, ports []int32, dnsDomain string) *Model {
-	return NewModel(namespaces, podNames, ports, []v1.Protocol{v1.ProtocolTCP}, dnsDomain)
+func NewWindowsModel(namespaces []string, podNames []string, ports []int32, dnsDomain string, tcp, udp, sctp bool) *Model {
+	return NewModel(namespaces, podNames, ports, []v1.Protocol{v1.ProtocolTCP}, dnsDomain, true, false, false)
 }
 
 // NewModel instantiates a model based on:
@@ -62,7 +65,7 @@ func NewWindowsModel(namespaces []string, podNames []string, ports []int32, dnsD
 // The total number of pods is the number of namespaces x the number of pods per namespace.
 // The number of containers per pod is the number of ports x the number of protocols.
 // The *total* number of containers is namespaces x pods x ports x protocols.
-func NewModel(namespaces []string, podNames []string, ports []int32, protocols []v1.Protocol, dnsDomain string) *Model {
+func NewModel(namespaces []string, podNames []string, ports []int32, protocols []v1.Protocol, dnsDomain string, tcp, udp, sctp bool) *Model {
 	model := &Model{
 		NamespaceNames: namespaces,
 		PodNames:       podNames,
@@ -80,10 +83,24 @@ func NewModel(namespaces []string, podNames []string, ports []int32, protocols [
 			var containers []*Container
 			for _, port := range ports {
 				for _, protocol := range protocols {
-					containers = append(containers, &Container{
-						Port:     port,
-						Protocol: protocol,
-					})
+					if protocol == v1.ProtocolTCP {
+						containers = append(containers, &Container{
+							Port:     port,
+							Protocol: protocol,
+						})	
+					}
+					if protocol == v1.ProtocolUDP {
+						containers = append(containers, &Container{
+							Port:     port,
+							Protocol: protocol,
+						})	
+					}
+					if protocol == v1.ProtocolSCTP {
+						containers = append(containers, &Container{
+							Port:     port,
+							Protocol: protocol,
+						})	
+					}
 				}
 			}
 			pods = append(pods, &Pod{
@@ -94,6 +111,9 @@ func NewModel(namespaces []string, podNames []string, ports []int32, protocols [
 		}
 		model.Namespaces = append(model.Namespaces, &Namespace{Name: ns, Pods: pods})
 	}
+	model.TCP=true
+	model.UDP=false
+	model.SCTP=false
 	return model
 }
 
@@ -198,7 +218,7 @@ func (p *Pod) PodString() PodString {
 }
 
 // ContainerSpecs builds kubernetes container specs for the pod
-func (p *Pod) ContainerSpecs() []v1.Container {
+func (p *Pod) ContainerSpecs(tcp, udp, sctp bool) []v1.Container {
 	var containers []v1.Container
 	for _, cont := range p.Containers {
 		containers = append(containers, cont.Spec())
@@ -223,7 +243,7 @@ func (p *Pod) LabelSelector() map[string]string {
 }
 
 // KubePod returns the kube pod (will add label selectors for windows if needed).
-func (p *Pod) KubePod() *v1.Pod {
+func (p *Pod) KubePod(tcp, udp, sctp bool) *v1.Pod {
 	zero := int64(0)
 
 	thePod := &v1.Pod{
@@ -234,7 +254,7 @@ func (p *Pod) KubePod() *v1.Pod {
 		},
 		Spec: v1.PodSpec{
 			TerminationGracePeriodSeconds: &zero,
-			Containers:                    p.ContainerSpecs(),
+			Containers:                    p.ContainerSpecs(tcp, udp, sctp),
 		},
 	}
 
@@ -349,6 +369,6 @@ func (c *Container) Spec() v1.Container {
 		},
 	}
 	// reduce cpu usage 10 fold compared to a normal pod...
-	container.Resources = getResourceRequirements(getResourceList("60m", "60Mi"), getResourceList("60m", "60Mi"))
+	container.Resources = getResourceRequirements(getResourceList("75m", "75Mi"), getResourceList("500m", "100Mi"))
 	return container	
 }

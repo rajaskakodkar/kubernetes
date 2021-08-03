@@ -63,7 +63,7 @@ func (k *kubeManager) initializeCluster(model *Model) error {
 
 			// note that we defer the logic of pod (i.e. node selector) specifics to the model
 			// which is aware of linux vs windows pods
-			kubePod, err := k.createPod(pod.KubePod())
+			kubePod, err := k.createPod(pod.KubePod(true, false, false))
 			if err != nil {
 				return err
 			}
