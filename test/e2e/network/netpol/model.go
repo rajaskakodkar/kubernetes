@@ -21,11 +21,10 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/test/e2e/framework"
 	imageutils "k8s.io/kubernetes/test/utils/image"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 )
 
 // getResourceRequirements returns a ResourceRequirements object
@@ -35,6 +34,7 @@ func getResourceRequirements(requests, limits v1.ResourceList) v1.ResourceRequir
 	res.Limits = limits
 	return res
 }
+
 // Model defines the namespaces, deployments, services, pods, containers and associated
 // data for network policy test cases and provides the source of truth
 type Model struct {
@@ -47,9 +47,9 @@ type Model struct {
 	Ports          []int32
 	Protocols      []v1.Protocol
 	DNSDomain      string
-	UDP bool
-	TCP bool
-	SCTP bool
+	UDP            bool
+	TCP            bool
+	SCTP           bool
 }
 
 // NewWindowsModel returns a model specific to windows testing.
@@ -87,19 +87,19 @@ func NewModel(namespaces []string, podNames []string, ports []int32, protocols [
 						containers = append(containers, &Container{
 							Port:     port,
 							Protocol: protocol,
-						})	
+						})
 					}
 					if protocol == v1.ProtocolUDP {
 						containers = append(containers, &Container{
 							Port:     port,
 							Protocol: protocol,
-						})	
+						})
 					}
 					if protocol == v1.ProtocolSCTP {
 						containers = append(containers, &Container{
 							Port:     port,
 							Protocol: protocol,
-						})	
+						})
 					}
 				}
 			}
@@ -111,9 +111,9 @@ func NewModel(namespaces []string, podNames []string, ports []int32, protocols [
 		}
 		model.Namespaces = append(model.Namespaces, &Namespace{Name: ns, Pods: pods})
 	}
-	model.TCP=true
-	model.UDP=false
-	model.SCTP=false
+	model.TCP = true
+	model.UDP = false
+	model.SCTP = false
 	return model
 }
 
@@ -315,7 +315,6 @@ func (c *Container) PortName() string {
 	return fmt.Sprintf("serve-%d-%s", c.Port, strings.ToLower(string(c.Protocol)))
 }
 
-
 // getResourceList returns a ResourceList with the
 // specified cpu and memory resource values
 func getResourceList(cpu, memory string) v1.ResourceList {
@@ -370,5 +369,5 @@ func (c *Container) Spec() v1.Container {
 	}
 	// reduce cpu usage 10 fold compared to a normal pod...
 	container.Resources = getResourceRequirements(getResourceList("1m", "50Mi"), getResourceList("75m", "75Mi"))
-	return container	
+	return container
 }
