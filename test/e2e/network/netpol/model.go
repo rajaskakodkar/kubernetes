@@ -111,9 +111,9 @@ func NewModel(namespaces []string, podNames []string, ports []int32, protocols [
 		}
 		model.Namespaces = append(model.Namespaces, &Namespace{Name: ns, Pods: pods})
 	}
-	model.TCP = true
-	model.UDP = false
-	model.SCTP = false
+	model.TCP = tcp
+	model.UDP = udp
+	model.SCTP = sctp
 	return model
 }
 

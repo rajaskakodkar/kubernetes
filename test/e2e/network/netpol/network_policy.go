@@ -61,7 +61,7 @@ var (
 	protocolSCTP = v1.ProtocolSCTP
 
 	// addSCTPContainers is a flag to enable SCTP containers on bootstrap.
-	addSCTPContainers = false
+	// addSCTPContainers = false
 )
 
 /*
@@ -123,7 +123,14 @@ var _ = common.SIGDescribe("Netpol", func() {
 
 	ginkgo.Context("NetworkPolicy between server and client", func() {
 		ginkgo.BeforeEach(func() {
-			model = initializeResourcesByFixedNS(f)
+			var tcp, udp, sctp bool
+			tcp, udp, sctp = true, false, false
+			for _, component := range ginkgo.CurrentGinkgoTestDescription().ComponentTexts {
+				if component == "should enforce ingress policy allowing any port traffic to a server on a specific protocol [Feature:NetworkPolicy] [Feature:UDP]" {
+					udp = true
+				}
+			}
+			model = initializeResourcesByFixedNS(f, tcp, udp, sctp)
 		})
 
 		ginkgo.AfterEach(func() {
@@ -1163,7 +1170,8 @@ var _ = common.SIGDescribe("Netpol [LinuxOnly]", func() {
 
 	ginkgo.Context("NetworkPolicy between server and client using UDP", func() {
 		ginkgo.BeforeEach(func() {
-			model = initializeResourcesByFixedNS(f)
+			tcp, udp, sctp := false, true, false
+			model = initializeResourcesByFixedNS(f, tcp, udp, sctp)
 		})
 
 		ginkgo.AfterEach(func() {
@@ -1242,8 +1250,9 @@ var _ = common.SIGDescribe("Netpol [Feature:SCTPConnectivity][LinuxOnly][Disrupt
 
 	ginkgo.Context("NetworkPolicy between server and client using SCTP", func() {
 		ginkgo.BeforeEach(func() {
-			addSCTPContainers = true
-			model = initializeResourcesByFixedNS(f)
+			tcp, udp, sctp := false, false, true
+			// addSCTPContainers = true
+			model = initializeResourcesByFixedNS(f, tcp, udp, sctp)
 		})
 
 		ginkgo.AfterEach(func() {
@@ -1327,8 +1336,15 @@ func getNamespaces(rootNs string) (string, string, string, []string) {
 // defaultModel creates a new "model" pod system under namespaces (x,y,z) which has pods a, b, and c.  Thus resulting in the
 // truth table matrix that is identical for all tests, comprising 81 total connections between 9 pods (x/a, x/b, x/c, ..., z/c).
 func defaultModel(namespaces []string, dnsDomain string, tcp, udp, sctp bool) *Model {
-	protocols := []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}
-	if addSCTPContainers {
+	protocols := []v1.Protocol{}
+	fmt.Println("HIIIIIIIIIII IAM IN DEFAULTMODEL", tcp, udp, sctp)
+	if tcp {
+		protocols = append(protocols, v1.ProtocolTCP)
+	}
+	if udp {
+		protocols = append(protocols, v1.ProtocolUDP)
+	}
+	if sctp {
 		protocols = append(protocols, v1.ProtocolSCTP)
 	}
 
@@ -1346,9 +1362,9 @@ func getK8sNamespaces(f *framework.Framework) (string, string, string, *kubeMana
 
 // initializeResourcesByFixedNS uses the e2e framework to create all necessary namespace resources, cleaning up
 // network policies from the namespace if useFixedNamespace is set true, avoiding policies overlap of new tests.
-func initializeResourcesByFixedNS(f *framework.Framework) *Model {
+func initializeResourcesByFixedNS(f *framework.Framework, tcp, udp, sctp bool) *Model {
 	if useFixedNamespaces {
-		model, _ := initializeResources(f)
+		model, _ := initializeResources(f, tcp, udp, sctp)
 		k8s := newKubeManager(f)
 		framework.ExpectNoError(k8s.cleanNetworkPolicies(model.NamespaceNames), "unable to clean network policies")
 		err := wait.Poll(waitInterval, waitTimeout, func() (done bool, err error) {
@@ -1365,7 +1381,7 @@ func initializeResourcesByFixedNS(f *framework.Framework) *Model {
 		return model
 	} else {
 		framework.Logf("Using %v as the default dns domain for this cluster... ", framework.TestContext.ClusterDNSDomain)
-		model, err := initializeResources(f)
+		model, err := initializeResources(f, tcp, udp, sctp)
 		framework.ExpectNoError(err, "unable to initialize resources")
 		return model
 	}
@@ -1374,13 +1390,13 @@ func initializeResourcesByFixedNS(f *framework.Framework) *Model {
 // initializeResources uses the e2e framework to create all necessary namespace resources, based on the network policy
 // model derived from the framework.  It then waits for the resources described by the model to be up and running
 // (i.e. all pods are ready and running in their namespaces).
-func initializeResources(f *framework.Framework) (*Model, error) {
+func initializeResources(f *framework.Framework, tcp, udp, sctp bool) (*Model, error) {
 	k8s := newKubeManager(f)
 	rootNs := f.Namespace.GetName()
 	_, _, _, namespaces := getNamespaces(rootNs)
 
-	// quick hack, only verifying tcp policies, other tests will fail... 
-	model := defaultModel(namespaces, framework.TestContext.ClusterDNSDomain, true, false, false)
+	// quick hack, only verifying tcp policies, other tests will fail...
+	model := defaultModel(namespaces, framework.TestContext.ClusterDNSDomain, tcp, udp, sctp)
 
 	framework.Logf("initializing cluster: ensuring namespaces, deployments, and pods exist and are ready")
 
